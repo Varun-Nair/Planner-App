@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root { height: 100%; }
+  body {
+    @apply bg-gradient-to-br from-background via-slate-900 to-background text-slate-100 antialiased font-sans;
+  }
+}
+
+@layer components {
+  /* Glass containers */
+  .glass {
+    @apply bg-surface backdrop-blur-md rounded-xl shadow-glass;
+  }
+
+  /* Navigation tabs */
+  .tabs { @apply glass p-1 flex items-center gap-1; }
+  .tab {
+    @apply flex-1 text-center px-3 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/5 transition-colors duration-200;
+  }
+  .tab-active {
+    @apply relative text-white after:content-[""] after:absolute after:left-3 after:right-3 after:-bottom-[2px] after:h-[2px] after:bg-accent after:rounded-full;
+  }
+
+  /* Buttons */
+  .btn { @apply inline-flex items-center justify-center px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 active:bg-white/15 text-slate-100 transition-colors duration-200; }
+  .btn-primary { @apply bg-accent hover:bg-accent-hover text-white; }
+  .btn-danger { @apply bg-rose-500/80 hover:bg-rose-500 text-white; }
+
+  /* Inputs */
+  .input { @apply w-full px-4 py-3 rounded-lg bg-white/5 text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-accent/30; }
+
+  .label {
+    @apply text-sm text-slate-300;
+  }
+
+  /* Mobile-friendly horizontal scroll cleanup */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+
