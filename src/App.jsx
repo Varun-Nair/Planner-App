@@ -5,7 +5,7 @@ import Eisenhower from './components/Eisenhower.jsx'
 import PrioList from './components/PrioList.jsx'
 import { usePersistentState, useTasksRepository } from './store.js'
 import Auth from './components/Auth.jsx'
-import { supabase } from './lib/supabaseClient.js'
+import { supabase } from './lib/supabase.js'
 
 const TABS = ['Form', 'List', 'Eisenhower', 'Prio']
 
@@ -43,6 +43,9 @@ export default function App() {
           <div className="text-2xl font-semibold tracking-tight">PrioGlass Web</div>
           <div className="flex items-center gap-3">
             <div className="text-xs text-slate-400">Offline • IndexedDB</div>
+            {session?.user?.id && (
+              <span className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10">{session.user.id}</span>
+            )}
             {session && (
               <button className="btn" onClick={() => supabase.auth.signOut()}>Logout</button>
             )}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { listAll as repoListAll, add as repoAdd, update as repoUpdate, remove as repoRemove, bulkImport as repoBulkImport } from './data/tasksRepo'
+import { supabase } from './lib/supabase.js'
+import { listAll as repoListAll, addTask as repoAddTask, updateTask as repoUpdateTask, deleteTask as repoDeleteTask } from './data/tasksRepo.js'
 
 export function usePersistentState(key, initialValue) {
   const isFirstLoadRef = useRef(true)
@@ -72,14 +73,14 @@ export async function migrateLocalStorageToIndexedDB() {
   }
 }
 
-// React-friendly repository hook maintaining tasks array in state while persisting to Dexie
+// React-friendly repository hook maintaining tasks array in state while persisting to Supabase
 export function useTasksRepository(userId) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
-      await migrateLocalStorageToIndexedDB()
+      if (!userId) { setTasks([]); setLoading(false); return }
       const all = await repoListAll(userId)
       setTasks(all)
       setLoading(false)
@@ -87,10 +88,7 @@ export function useTasksRepository(userId) {
   }, [userId])
 
   const addTask = async (partial) => {
-    const now = new Date().toISOString()
     const task = {
-      id: generateId('task'),
-      userId,
       name: '',
       duration: 0,
       urgent: false,
@@ -99,30 +97,44 @@ export function useTasksRepository(userId) {
       dueAt: '',
       type: 'Task',
       notes: '',
-      createdAt: now,
-      updatedAt: now,
       ...partial,
     }
-    await repoAdd(task)
-    setTasks(prev => [...prev, task])
+    const created = await repoAddTask(userId, task)
+    setTasks(prev => [created, ...prev])
   }
 
   const updateTask = async (id, updates) => {
-    const next = tasks.map(t => t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t)
-    const updated = next.find(t => t.id === id)
-    if (updated) await repoUpdate(updated)
-    setTasks(next)
+    const existing = tasks.find(t => t.id === id)
+    if (!existing) return
+    const updated = await repoUpdateTask(userId, { ...existing, ...updates })
+    setTasks(prev => prev.map(t => t.id === id ? updated : t))
   }
 
   const deleteTask = async (id) => {
-    await repoRemove(id)
+    await repoDeleteTask(userId, id)
     setTasks(prev => prev.filter(t => t.id !== id))
   }
 
   const reload = async () => {
-    const all = await repoListAll()
+    if (!userId) { setTasks([]); return }
+    const all = await repoListAll(userId)
     setTasks(all)
   }
+
+  // Realtime sync for this user
+  useEffect(() => {
+    if (!userId) return
+    const channel = supabase
+      .channel('tasks-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, async (payload) => {
+        const row = payload.new || payload.old
+        if (!row || row.user_id !== userId) return
+        // Simple strategy: refetch
+        try { const all = await repoListAll(userId); setTasks(all) } catch {}
+      })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [userId])
 
   return { tasks, loading, addTask, updateTask, deleteTask, reload }
 }
