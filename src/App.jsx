@@ -1,15 +1,30 @@
-import { useMemo, useState, useRef } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import TaskForm from './components/TaskForm.jsx'
 import TaskList from './components/TaskList.jsx'
 import Eisenhower from './components/Eisenhower.jsx'
 import PrioList from './components/PrioList.jsx'
 import { usePersistentState, useTasksRepository } from './store.js'
+import Auth from './components/Auth.jsx'
+import { supabase } from './lib/supabaseClient.js'
 
 const TABS = ['Form', 'List', 'Eisenhower', 'Prio']
 
 export default function App() {
   const [activeTab, setActiveTab] = usePersistentState('prioglass.activeTab', 'Form')
-  const { tasks, loading, addTask, updateTask, deleteTask } = useTasksRepository()
+  const [session, setSession] = useState(null)
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      const { data } = await supabase.auth.getSession()
+      if (mounted) setSession(data.session ?? null)
+    })()
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => setSession(sess))
+    return () => { mounted = false; sub.subscription?.unsubscribe?.() }
+  }, [])
+
+  const userId = session?.user?.id
+  const { tasks, loading, addTask, updateTask, deleteTask } = useTasksRepository(userId)
 
   const navTab = (tab) => (
     <button
@@ -26,31 +41,41 @@ export default function App() {
       <header className="p-4">
         <div className="glass p-4 flex items-center justify-between">
           <div className="text-2xl font-semibold tracking-tight">PrioGlass Web</div>
-          <div className="text-xs text-slate-400">Offline • IndexedDB</div>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-slate-400">Offline • IndexedDB</div>
+            {session && (
+              <button className="btn" onClick={() => supabase.auth.signOut()}>Logout</button>
+            )}
+          </div>
         </div>
       </header>
 
       <main className="flex-1 p-4 pt-0">
-        <div className="tabs overflow-x-auto no-scrollbar">
-          {TABS.map(navTab)}
-        </div>
-
-        <div className="mt-4">
-          {activeTab === 'Form' && (
-            <TaskForm
-              onSave={(task) => { addTask(task); setActiveTab('List') }}
-            />
-          )}
-          {activeTab === 'List' && (
-            <TaskList tasks={tasks} onUpdate={updateTask} onDelete={deleteTask} />
-          )}
-          {activeTab === 'Eisenhower' && (
-            <Eisenhower tasks={tasks} />
-          )}
-          {activeTab === 'Prio' && (
-            <PrioList tasks={tasks} />
-          )}
-        </div>
+        {!session ? (
+          <div className="mt-4"><Auth /></div>
+        ) : (
+          <>
+            <div className="tabs overflow-x-auto no-scrollbar">
+              {TABS.map(navTab)}
+            </div>
+            <div className="mt-4">
+              {activeTab === 'Form' && (
+                <TaskForm
+                  onSave={(task) => { addTask(task); setActiveTab('List') }}
+                />
+              )}
+              {activeTab === 'List' && (
+                <TaskList tasks={tasks} onUpdate={updateTask} onDelete={deleteTask} />
+              )}
+              {activeTab === 'Eisenhower' && (
+                <Eisenhower tasks={tasks} />
+              )}
+              {activeTab === 'Prio' && (
+                <PrioList tasks={tasks} />
+              )}
+            </div>
+          </>
+        )}
       </main>
 
       <footer className="p-4 pt-0">

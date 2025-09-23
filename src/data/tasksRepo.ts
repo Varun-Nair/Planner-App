@@ -1,6 +1,11 @@
 import { db, type Task } from './db'
 
-export async function listAll(): Promise<Task[]> {
+export async function listAll(userId?: string): Promise<Task[]> {
+  if (userId) {
+    // Use userId index then order client-side by createdAt
+    const rows = await db.tasks.where('userId').equals(userId).toArray()
+    return rows.sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+  }
   return db.tasks.orderBy('createdAt').toArray()
 }
 

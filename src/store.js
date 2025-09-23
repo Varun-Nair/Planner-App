@@ -73,23 +73,24 @@ export async function migrateLocalStorageToIndexedDB() {
 }
 
 // React-friendly repository hook maintaining tasks array in state while persisting to Dexie
-export function useTasksRepository() {
+export function useTasksRepository(userId) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     (async () => {
       await migrateLocalStorageToIndexedDB()
-      const all = await repoListAll()
+      const all = await repoListAll(userId)
       setTasks(all)
       setLoading(false)
     })()
-  }, [])
+  }, [userId])
 
   const addTask = async (partial) => {
     const now = new Date().toISOString()
     const task = {
       id: generateId('task'),
+      userId,
       name: '',
       duration: 0,
       urgent: false,
