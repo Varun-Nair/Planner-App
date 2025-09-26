@@ -27,6 +27,7 @@ export async function addTask(user, task) {
     due_at: task.dueAt || null,
     type: normalizedType,
     notes: task.notes || null,
+    completed: !!task.completed,
   }
   console.log('INSERT PAYLOAD:', payload)
   console.log('FINAL TYPE VALUE:', JSON.stringify(payload.type))
@@ -57,6 +58,7 @@ export async function updateTask(user, task) {
       due_at: task.dueAt || null,
       type: normalizedType,
       notes: task.notes || null,
+      completed: !!task.completed,
     })
     .eq('id', task.id)
     .eq('user_id', user.id)

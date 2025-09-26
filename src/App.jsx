@@ -3,11 +3,12 @@ import TaskForm from './components/TaskForm.jsx'
 import TaskList from './components/TaskList.jsx'
 import Eisenhower from './components/Eisenhower.jsx'
 import PrioList from './components/PrioList.jsx'
+import CalendarView from './components/CalendarView.jsx'
 import { usePersistentState, useTasksRepository } from './store.js'
 import Auth from './components/Auth.jsx'
 import { supabase } from './lib/supabase.js'
 
-const TABS = ['Form', 'List', 'Eisenhower', 'Prio']
+const TABS = ['Form', 'List', 'Eisenhower', 'Prio', 'Calendar']
 
 export default function App() {
   const [activeTab, setActiveTab] = usePersistentState('prioglass.activeTab', 'Form')
@@ -72,9 +73,12 @@ export default function App() {
               {activeTab === 'Eisenhower' && (
                 <Eisenhower tasks={tasks} />
               )}
-              {activeTab === 'Prio' && (
-                <PrioList tasks={tasks} />
-              )}
+          {activeTab === 'Prio' && (
+            <PrioList tasks={tasks} onToggleComplete={(t) => updateTask(t.id, { completed: !t.completed })} />
+          )}
+          {activeTab === 'Calendar' && (
+            <CalendarView tasks={tasks} onUpdate={updateTask} onDelete={deleteTask} />
+          )}
             </div>
           </>
         )}

@@ -67,6 +67,7 @@ export function useTasksRepository(userId) {
     important: !!row.is_important,
     scheduledAt: row.scheduled_at || '',
     dueAt: row.due_at || '',
+    completed: !!row.completed,
     type: row.type,
     notes: row.notes || '',
     createdAt: row.created_at || '',

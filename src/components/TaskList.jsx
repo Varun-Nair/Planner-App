@@ -105,11 +105,59 @@ export default function TaskList({ tasks, onUpdate, onDelete }) {
     )
   }
 
+  const upcoming = [...tasks.filter(t => !t.completed)].sort((a, b) => {
+    const aS = a.scheduledAt ? new Date(a.scheduledAt).getTime() : Infinity
+    const bS = b.scheduledAt ? new Date(b.scheduledAt).getTime() : Infinity
+    return aS - bS
+  })
+  const completed = [...tasks.filter(t => !!t.completed)].sort((a, b) => {
+    const aU = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+    const bU = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+    return bU - aU
+  })
+
+  const toggleCompleted = async (t) => {
+    await onUpdate(t.id, { completed: !t.completed })
+  }
+
   return (
-    <div className="space-y-3">
-      {tasks.map(t => (
-        <TaskItem key={t.id} task={t} onUpdate={onUpdate} onDelete={onDelete} />
-      ))}
+    <div className="space-y-6">
+      <section>
+        <div className="text-sm font-semibold text-slate-300 mb-2">Upcoming</div>
+        <div className="space-y-3">
+          {upcoming.length === 0 ? (
+            <div className="glass p-4 text-slate-400">Nothing upcoming</div>
+          ) : upcoming.map(t => (
+            <div key={t.id} className={`relative group`}>
+              <TaskItem task={t} onUpdate={onUpdate} onDelete={onDelete} />
+              <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <label className="glass px-2 py-1 flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" className="accent-emerald-400" checked={!!t.completed} onChange={() => toggleCompleted(t)} />
+                  <span className="text-xs">Done</span>
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+      <section>
+        <div className="text-sm font-semibold text-slate-300 mb-2">Completed</div>
+        <div className="space-y-3">
+          {completed.length === 0 ? (
+            <div className="glass p-4 text-slate-400">No completed tasks</div>
+          ) : completed.map(t => (
+            <div key={t.id} className={`relative group ${t.completed ? 'opacity-70' : ''}`}>
+              <TaskItem task={t} onUpdate={onUpdate} onDelete={onDelete} />
+              <div className="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <label className="glass px-2 py-1 flex items-center gap-2 cursor-pointer select-none">
+                  <input type="checkbox" className="accent-emerald-400" checked={!!t.completed} onChange={() => toggleCompleted(t)} />
+                  <span className="text-xs">Done</span>
+                </label>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
     </div>
   )
 }
