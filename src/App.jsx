@@ -42,7 +42,6 @@ export default function App() {
         <div className="glass p-4 flex items-center justify-between">
           <div className="text-2xl font-semibold tracking-tight">PrioGlass Web</div>
           <div className="flex items-center gap-3">
-            <div className="text-xs text-slate-400">Offline • IndexedDB</div>
             {session?.user?.id && (
               <span className="text-[10px] px-2 py-1 rounded-full bg-white/5 border border-white/10">{session.user.id}</span>
             )}

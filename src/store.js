@@ -51,74 +51,102 @@ export function generateId(prefix = 't') {
   return `${prefix}_${Date.now().toString(36)}_${random}`
 }
 
-// One-time migration from localStorage to Dexie. Safe to call multiple times.
-export async function migrateLocalStorageToIndexedDB() {
-  try {
-    const migratedFlag = localStorage.getItem('prioglass.migratedToIndexedDB')
-    if (migratedFlag === 'true') return
-    const raw = localStorage.getItem('prioglass.tasks')
-    if (!raw) {
-      localStorage.setItem('prioglass.migratedToIndexedDB', 'true')
-      return
-    }
-    const tasks = JSON.parse(raw)
-    if (Array.isArray(tasks) && tasks.length > 0) {
-      // Ensure IDs are strings
-      const normalized = tasks.map(t => ({ ...t, id: String(t.id) }))
-      await repoBulkImport(normalized)
-    }
-    localStorage.setItem('prioglass.migratedToIndexedDB', 'true')
-  } catch (err) {
-    console.warn('Migration failed', err)
-  }
-}
+// Deprecated: legacy localStorage migration removed in Supabase mode
 
 // React-friendly repository hook maintaining tasks array in state while persisting to Supabase
 export function useTasksRepository(userId) {
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const toUi = (row) => row && ({
+    id: row.id,
+    userId: row.user_id,
+    name: row.name,
+    duration: Number(row.duration_minutes ?? 0),
+    urgent: !!row.is_urgent,
+    important: !!row.is_important,
+    scheduledAt: row.scheduled_at || '',
+    dueAt: row.due_at || '',
+    type: row.type,
+    notes: row.notes || '',
+    createdAt: row.created_at || '',
+    updatedAt: row.updated_at || row.created_at || '',
+  })
+
   useEffect(() => {
     (async () => {
-      if (!userId) { setTasks([]); setLoading(false); return }
-      const all = await repoListAll(userId)
-      setTasks(all)
-      setLoading(false)
+      try {
+        if (!userId) { setTasks([]); setLoading(false); return }
+        const { data: { user } } = await supabase.auth.getUser()
+        console.log('USER:', user)
+        const rows = await repoListAll(user)
+        setTasks((rows || []).map(toUi))
+        setLoading(false)
+      } catch (error) {
+        console.error('FETCH failed', error)
+        alert('Failed to load tasks. See console for details.')
+        setLoading(false)
+      }
     })()
   }, [userId])
 
   const addTask = async (partial) => {
-    const task = {
-      name: '',
-      duration: 0,
-      urgent: false,
-      important: false,
-      scheduledAt: '',
-      dueAt: '',
-      type: 'Task',
-      notes: '',
-      ...partial,
+    try {
+      const task = {
+        name: '',
+        duration: 0,
+        urgent: false,
+        important: false,
+        scheduledAt: '',
+        dueAt: '',
+        type: 'Task',
+        notes: '',
+        ...partial,
+      }
+      const { data: { user } } = await supabase.auth.getUser()
+      const createdRow = await repoAddTask(user, task)
+      const created = toUi(createdRow)
+      setTasks(prev => [created, ...prev])
+    } catch (error) {
+      console.error('addTask failed', error)
+      alert('Failed to add task. Check console for details.')
     }
-    const created = await repoAddTask(userId, task)
-    setTasks(prev => [created, ...prev])
   }
 
   const updateTask = async (id, updates) => {
-    const existing = tasks.find(t => t.id === id)
-    if (!existing) return
-    const updated = await repoUpdateTask(userId, { ...existing, ...updates })
-    setTasks(prev => prev.map(t => t.id === id ? updated : t))
+    try {
+      const existing = tasks.find(t => t.id === id)
+      if (!existing) return
+      const { data: { user } } = await supabase.auth.getUser()
+      const updatedRow = await repoUpdateTask(user, { ...existing, ...updates })
+      const updated = toUi(updatedRow)
+      setTasks(prev => prev.map(t => t.id === id ? updated : t))
+    } catch (error) {
+      console.error('updateTask failed', error)
+      alert('Failed to update task. Check console for details.')
+    }
   }
 
   const deleteTask = async (id) => {
-    await repoDeleteTask(userId, id)
-    setTasks(prev => prev.filter(t => t.id !== id))
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await repoDeleteTask(user, id)
+      setTasks(prev => prev.filter(t => t.id !== id))
+    } catch (error) {
+      console.error('deleteTask failed', error)
+      alert('Failed to delete task. Check console for details.')
+    }
   }
 
   const reload = async () => {
-    if (!userId) { setTasks([]); return }
-    const all = await repoListAll(userId)
-    setTasks(all)
+    try {
+      if (!userId) { setTasks([]); return }
+      const { data: { user } } = await supabase.auth.getUser()
+      const rows = await repoListAll(user)
+      setTasks((rows || []).map(toUi))
+    } catch (error) {
+      console.error('FETCH reload failed', error)
+    }
   }
 
   // Realtime sync for this user
@@ -130,7 +158,11 @@ export function useTasksRepository(userId) {
         const row = payload.new || payload.old
         if (!row || row.user_id !== userId) return
         // Simple strategy: refetch
-        try { const all = await repoListAll(userId); setTasks(all) } catch {}
+        try {
+          const { data: { user } } = await supabase.auth.getUser()
+          const rows = await repoListAll(user)
+          setTasks((rows || []).map(toUi))
+        } catch {}
       })
       .subscribe()
     return () => { supabase.removeChannel(channel) }

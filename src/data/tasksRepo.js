@@ -1,78 +1,100 @@
 import { supabase } from '../lib/supabase'
 
-const toUiTask = (row) => {
-  if (!row) return null
-  return {
-    id: row.id,
-    userId: row.user_id,
-    name: row.name,
-    duration: row.duration_minutes,
-    urgent: !!row.is_urgent,
-    important: !!row.is_important,
-    scheduledAt: row.scheduled_at || '',
-    dueAt: row.due_at || '',
-    type: row.type,
-    notes: row.notes || '',
-    createdAt: row.created_at || '',
-    updatedAt: row.updated_at || row.created_at || '',
-  }
-}
-
-const toPayload = (userId, task) => ({
-  user_id: userId,
-  name: task.name,
-  duration_minutes: Number(task.duration),
-  is_urgent: !!task.urgent,
-  is_important: !!task.important,
-  scheduled_at: task.scheduledAt || null,
-  due_at: task.dueAt || null,
-  type: task.type,
-  notes: task.notes || null,
-})
-
-export async function listAll(userId) {
-  console.log('USER', userId)
+export async function listAll(user) {
   const { data, error } = await supabase
     .from('tasks')
     .select('*')
-    .eq('user_id', userId)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-  console.log('FETCH', { data, error })
+  console.log('FETCH:', { data, error })
   if (error) throw error
-  return (data || []).map(toUiTask)
+  return data || []
 }
 
-export async function addTask(userId, task) {
-  const payload = toPayload(userId, task)
+export async function addTask(user, task) {
+  const allowed = new Set(['task', 'issue', 'project'])
+  const normalizedType = (() => {
+    const t = (task?.type || 'task').toString().toLowerCase().trim()
+    return allowed.has(t) ? t : 'task'
+  })()
+  const payload = {
+    user_id: user.id,
+    name: task.name,
+    duration_minutes: task.duration,
+    is_urgent: !!task.urgent,
+    is_important: !!task.important,
+    scheduled_at: task.scheduledAt || null,
+    due_at: task.dueAt || null,
+    type: normalizedType,
+    notes: task.notes || null,
+  }
+  console.log('INSERT PAYLOAD:', payload)
+  console.log('FINAL TYPE VALUE:', JSON.stringify(payload.type))
   const { data, error } = await supabase
     .from('tasks')
     .insert([payload])
     .select('*')
     .single()
-  console.log('INSERT', { data, error })
+  console.log('INSERT:', { data, error })
   if (error) throw error
-  return toUiTask(data)
+  return data
 }
 
-export async function updateTask(userId, task) {
+export async function updateTask(user, task) {
+  const allowed = new Set(['task', 'issue', 'project'])
+  const normalizedType = (() => {
+    const t = (task?.type || 'task').toString().toLowerCase().trim()
+    return allowed.has(t) ? t : 'task'
+  })()
   const { data, error } = await supabase
     .from('tasks')
-    .update(toPayload(userId, task))
+    .update({
+      name: task.name,
+      duration_minutes: task.duration,
+      is_urgent: !!task.urgent,
+      is_important: !!task.important,
+      scheduled_at: task.scheduledAt || null,
+      due_at: task.dueAt || null,
+      type: normalizedType,
+      notes: task.notes || null,
+    })
     .eq('id', task.id)
+    .eq('user_id', user.id)
     .select('*')
     .single()
-  console.log('UPDATE', { data, error })
+  console.log('UPDATE:', { data, error })
   if (error) throw error
-  return toUiTask(data)
+  return data
 }
 
-export async function deleteTask(userId, id) {
+export async function deleteTask(user, id) {
   const { error } = await supabase
     .from('tasks')
     .delete()
     .eq('id', id)
-  console.log('DELETE', { id, error })
+    .eq('user_id', user.id)
+  console.log('DELETE:', { error })
   if (error) throw error
+}
+
+export async function testInsert(user) {
+  const payload = {
+    user_id: user.id,
+    name: 'Test Task',
+    duration_minutes: 5,
+    is_urgent: false,
+    is_important: false,
+    type: 'task',
+  }
+
+  console.log('TEST PAYLOAD:', payload)
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .insert([payload])
+    .select('*')
+
+  console.log('TEST RESULT:', { data, error })
 }
 
 
