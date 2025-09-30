@@ -17,7 +17,7 @@ const LABELS = {
 export default function Eisenhower({ tasks }) {
   const buckets = useMemo(() => {
     const b = { UI: [], I: [], U: [], O: [] }
-    ;(tasks || []).forEach(t => { b[quadrantKey(t)].push(t) })
+    ;(tasks || []).filter(t => !t.completed).forEach(t => { b[quadrantKey(t)].push(t) })
     return b
   }, [tasks])
   const [selected, setSelected] = useState('')
